@@ -7,7 +7,7 @@
 #include <iostream>
 
 #include "common.h"
-#include "sophus/se3.hpp"
+#include "sophus/se3.h"
 
 using namespace Sophus;
 using namespace Eigen;
@@ -19,7 +19,7 @@ struct PoseAndIntrinsics {
 
     /// set from given data address
     explicit PoseAndIntrinsics(double *data_addr) {
-        rotation = SO3d::exp(Vector3d(data_addr[0], data_addr[1], data_addr[2]));
+        rotation = SO3::exp(Vector3d(data_addr[0], data_addr[1], data_addr[2]));
         translation = Vector3d(data_addr[3], data_addr[4], data_addr[5]);
         focal = data_addr[6];
         k1 = data_addr[7];
@@ -36,7 +36,7 @@ struct PoseAndIntrinsics {
         data_addr[8] = k2;
     }
 
-    SO3d rotation;
+    SO3 rotation;
     Vector3d translation = Vector3d::Zero();
     double focal = 0;
     double k1 = 0, k2 = 0;
@@ -54,7 +54,7 @@ public:
     }
 
     virtual void oplusImpl(const double *update) override {
-        _estimate.rotation = SO3d::exp(Vector3d(update[0], update[1], update[2])) * _estimate.rotation;
+        _estimate.rotation = SO3::exp(Vector3d(update[0], update[1], update[2])) * _estimate.rotation;
         _estimate.translation += Vector3d(update[3], update[4], update[5]);
         _estimate.focal += update[6];
         _estimate.k1 += update[7];
@@ -96,7 +96,7 @@ public:
 };
 
 class EdgeProjection :
-    public g2o::BaseBinaryEdge<2, Vector2d, VertexPoseAndIntrinsics, VertexPoint> {
+        public g2o::BaseBinaryEdge<2, Vector2d, VertexPoseAndIntrinsics, VertexPoint> {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
@@ -126,9 +126,9 @@ int main(int argc, char **argv) {
     BALProblem bal_problem(argv[1]);
     bal_problem.Normalize();
     bal_problem.Perturb(0.1, 0.5, 0.5);
-    bal_problem.WriteToPLYFile("initial.ply");
+    bal_problem.WriteToPLYFile("../g2o_solve/initial.ply");
     SolveBA(bal_problem);
-    bal_problem.WriteToPLYFile("final.ply");
+    bal_problem.WriteToPLYFile("../g2o_solve/final.ply");
 
     return 0;
 }

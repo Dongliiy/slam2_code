@@ -291,13 +291,13 @@ void bundleAdjustment(
   // convert to cv::Mat
   Eigen::Matrix3d R_ = pose->estimate().rotation_matrix();
   Eigen::Vector3d t_ = pose->estimate().translation();
-  Mat R_t = (Mat_<double>(3, 3) <<
+  R = (Mat_<double>(3, 3) <<
     R_(0, 0), R_(0, 1), R_(0, 2),
     R_(1, 0), R_(1, 1), R_(1, 2),
     R_(2, 0), R_(2, 1), R_(2, 2)
   );
-  Mat t_t = (Mat_<double>(3, 1) << t_(0, 0), t_(1, 0), t_(2, 0));
-  R_t.copyTo(R);
-  t_t.copyTo(t);
+  t = (Mat_<double>(3, 1) << t_(0, 0), t_(1, 0), t_(2, 0));
+  cout << "R=" <<endl << R << endl;
+  cout << "t=" <<endl << t << endl;
 
 }

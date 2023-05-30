@@ -9,12 +9,12 @@
 #include <g2o/core/optimization_algorithm_levenberg.h>
 #include <g2o/solvers/eigen/linear_solver_eigen.h>
 
-#include <sophus/se3.hpp>
+#include <sophus/se3.h>
 
 using namespace std;
 using namespace Eigen;
-using Sophus::SE3d;
-using Sophus::SO3d;
+using Sophus::SE3;
+using Sophus::SO3;
 
 /************************************************
  * 本程序演示如何用g2o solver进行位姿图优化
@@ -26,12 +26,12 @@ using Sophus::SO3d;
 typedef Matrix<double, 6, 6> Matrix6d;
 
 // 给定误差求J_R^{-1}的近似
-Matrix6d JRInv(const SE3d &e) {
+Matrix6d JRInv(const SE3 &e) {
     Matrix6d J;
-    J.block(0, 0, 3, 3) = SO3d::hat(e.so3().log());
-    J.block(0, 3, 3, 3) = SO3d::hat(e.translation());
+    J.block(0, 0, 3, 3) = SO3::hat(e.so3().log());
+    J.block(0, 3, 3, 3) = SO3::hat(e.translation());
     J.block(3, 0, 3, 3) = Matrix3d::Zero(3, 3);
-    J.block(3, 3, 3, 3) = SO3d::hat(e.so3().log());
+    J.block(3, 3, 3, 3) = SO3::hat(e.so3().log());
     // J = J * 0.5 + Matrix6d::Identity();
     J = Matrix6d::Identity();    // try Identity if you want
     return J;
@@ -40,7 +40,7 @@ Matrix6d JRInv(const SE3d &e) {
 // 李代数顶点
 typedef Matrix<double, 6, 1> Vector6d;
 
-class VertexSE3LieAlgebra : public g2o::BaseVertex<6, SE3d> {
+class VertexSE3LieAlgebra : public g2o::BaseVertex<6, SE3> {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
@@ -48,7 +48,7 @@ public:
         double data[7];
         for (int i = 0; i < 7; i++)
             is >> data[i];
-        setEstimate(SE3d(
+        setEstimate(SE3(
             Quaterniond(data[6], data[3], data[4], data[5]),
             Vector3d(data[0], data[1], data[2])
         ));
@@ -63,19 +63,19 @@ public:
     }
 
     virtual void setToOriginImpl() override {
-        _estimate = SE3d();
+        _estimate = SE3();
     }
 
     // 左乘更新
     virtual void oplusImpl(const double *update) override {
         Vector6d upd;
         upd << update[0], update[1], update[2], update[3], update[4], update[5];
-        _estimate = SE3d::exp(upd) * _estimate;
+        _estimate = SE3::exp(upd) * _estimate;
     }
 };
 
 // 两个李代数节点之边
-class EdgeSE3LieAlgebra : public g2o::BaseBinaryEdge<6, SE3d, VertexSE3LieAlgebra, VertexSE3LieAlgebra> {
+class EdgeSE3LieAlgebra : public g2o::BaseBinaryEdge<6, SE3, VertexSE3LieAlgebra, VertexSE3LieAlgebra> {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
@@ -85,7 +85,7 @@ public:
             is >> data[i];
         Quaterniond q(data[6], data[3], data[4], data[5]);
         q.normalize();
-        setMeasurement(SE3d(q, Vector3d(data[0], data[1], data[2])));
+        setMeasurement(SE3(q, Vector3d(data[0], data[1], data[2])));
         for (int i = 0; i < information().rows() && is.good(); i++)
             for (int j = i; j < information().cols() && is.good(); j++) {
                 is >> information()(i, j);
@@ -99,7 +99,7 @@ public:
         VertexSE3LieAlgebra *v1 = static_cast<VertexSE3LieAlgebra *> (_vertices[0]);
         VertexSE3LieAlgebra *v2 = static_cast<VertexSE3LieAlgebra *> (_vertices[1]);
         os << v1->id() << " " << v2->id() << " ";
-        SE3d m = _measurement;
+        SE3 m = _measurement;
         Eigen::Quaterniond q = m.unit_quaternion();
         os << m.translation().transpose() << " ";
         os << q.coeffs()[0] << " " << q.coeffs()[1] << " " << q.coeffs()[2] << " " << q.coeffs()[3] << " ";
@@ -115,16 +115,16 @@ public:
 
     // 误差计算与书中推导一致
     virtual void computeError() override {
-        SE3d v1 = (static_cast<VertexSE3LieAlgebra *> (_vertices[0]))->estimate();
-        SE3d v2 = (static_cast<VertexSE3LieAlgebra *> (_vertices[1]))->estimate();
+        SE3 v1 = (static_cast<VertexSE3LieAlgebra *> (_vertices[0]))->estimate();
+        SE3 v2 = (static_cast<VertexSE3LieAlgebra *> (_vertices[1]))->estimate();
         _error = (_measurement.inverse() * v1.inverse() * v2).log();
     }
 
     // 雅可比计算
     virtual void linearizeOplus() override {
-        SE3d v1 = (static_cast<VertexSE3LieAlgebra *> (_vertices[0]))->estimate();
-        SE3d v2 = (static_cast<VertexSE3LieAlgebra *> (_vertices[1]))->estimate();
-        Matrix6d J = JRInv(SE3d::exp(_error));
+        SE3 v1 = (static_cast<VertexSE3LieAlgebra *> (_vertices[0]))->estimate();
+        SE3 v2 = (static_cast<VertexSE3LieAlgebra *> (_vertices[1]))->estimate();
+        Matrix6d J = JRInv(SE3::exp(_error));
         // 尝试把J近似为I？
         _jacobianOplusXi = -J * v2.inverse().Adj();
         _jacobianOplusXj = J * v2.inverse().Adj();
@@ -195,7 +195,7 @@ int main(int argc, char **argv) {
 
     // 因为用了自定义顶点且没有向g2o注册，这里保存自己来实现
     // 伪装成 SE3 顶点和边，让 g2o_viewer 可以认出
-    ofstream fout("result_lie.g2o");
+    ofstream fout("../g2o_solve/result_lie.g2o");
     for (VertexSE3LieAlgebra *v:vectices) {
         fout << "VERTEX_SE3:QUAT ";
         v->write(fout);

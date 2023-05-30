@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
     optimizer.optimize(30);
 
     cout << "saving optimization results ..." << endl;
-    optimizer.save("result.g2o");
+    optimizer.save("../g2o_solve/result.g2o");
 
     return 0;
 }
